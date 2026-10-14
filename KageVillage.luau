@@ -107,7 +107,7 @@ end
 relocatePortal()
 local Http=game:GetService("HttpService")
 local AssetService=game:GetService("AssetService")
-local meshCache,editableMeshes={},{}
+local meshCache,editableMeshes,textureCache={},{},{}
 local function assetBytes(path)
     assert(not path:find("..",1,true), "Invalid asset path")
     if Config.BaseUrl~="" then
@@ -164,6 +164,18 @@ local function objectivePoint(pos,name,description)
     table.insert(seals,{position=pos+Vector3.new(0,4,0),part=seal,pedestal=pedestal,collected=false,name=name,story=description,light=h})
 end
 local monsterData
+local function textureAsset(path)
+    if textureCache[path] then return textureCache[path] end
+    local custom=getcustomasset or getsynasset
+    if not custom or not writefile or not makefolder then Config.MissingTextures=true;return nil end
+    local ok,id=pcall(function()
+        pcall(makefolder,"OvitarKageTextures")
+        local localPath="OvitarKageTextures/"..path:match("([^/]+)$")
+        writefile(localPath,assetBytes(path));return custom(localPath)
+    end)
+    if ok then textureCache[path]=id;return id end
+    Config.MissingTextures=true;warn("Kage texture: "..tostring(id));return nil
+end
 local function meshTemplate(key,data)
     if meshCache[key] then return meshCache[key] end
     assert(type(data.vertices)=="table" and #data.vertices<=60000,"Invalid mesh vertices")
@@ -183,7 +195,8 @@ local function meshTemplate(key,data)
     local vertices,uvs,colors,normals,vertexNormals={},{},{},{},{}
     for i,p in ipairs(positions) do
         vertices[i]=editable:AddVertex(p-center)
-        uvs[i]=editable:AddUV(Vector2.new((p.X+p.Y)*.12,(p.Z+p.Y)*.12))
+        local uv=data.uvs and data.uvs[i]
+        uvs[i]=editable:AddUV(type(uv)=="table" and Vector2.new(uv[1],uv[2]) or Vector2.new((p.X+p.Y)*.12,(p.Z+p.Y)*.12))
         local n=data.normals and data.normals[i]
         if type(n)=="table" then vertexNormals[i]=editable:AddNormal(Vector3.new(n[1],n[2],n[3])) end
     end
@@ -212,6 +225,7 @@ local function meshTemplate(key,data)
     template.Name=key;template.Anchored=true;template.CanCollide=false;template.CanTouch=false;template.CanQuery=false
     template.DoubleSided=true;template.Color=Color3.new(1,1,1)
     template.Material=Enum.Material[data.material] or Enum.Material.SmoothPlastic
+    if data.texture then local id=textureAsset(data.texture);if id then template.TextureID=id end end
     local result={part=template,center=center};meshCache[key]=result
     return result
 end
@@ -417,7 +431,7 @@ local function restore()
     snapshot=nil
 end
 local lanternPart=part(root,"Player lantern light",Vector3.new(.1,.1,.1),CFrame.new(origin),C.paper,Enum.Material.SmoothPlastic,false);lanternPart.Transparency=1
-local lantern=make("SpotLight",{Angle=72,Range=65,Brightness=3,Color=Color3.fromRGB(255,205,139),Shadows=true,Enabled=false,Face=Enum.NormalId.Front},lanternPart)
+local lantern=make("SpotLight",{Angle=82,Range=65,Brightness=1.5,Color=Color3.fromRGB(238,224,195),Shadows=true,Enabled=false,Face=Enum.NormalId.Front},lanternPart)
 local function effects()
     snapshot={lighting={},enabled={},atmospheres={},humanoid=character:FindFirstChildOfClass("Humanoid")}
     local camera=workspace.CurrentCamera
@@ -562,7 +576,7 @@ end)
 connect(Input.InputEnded,function(event) keys[event.KeyCode]=nil end)
 connect(Input.WindowFocusReleased,function() table.clear(keys) end)
 connect(Input.InputChanged,function(event)
-    if active and state~="caught" and event.UserInputType==Enum.UserInputType.MouseMovement then
+    if active and state~="caught" and not (Config.Development and Config.Preview) and event.UserInputType==Enum.UserInputType.MouseMovement then
         yaw=yaw-event.Delta.X*.0023;pitch=math.clamp(pitch-event.Delta.Y*.0023,-1.35,1.35)
     end
 end)
@@ -580,7 +594,7 @@ Run:BindToRenderStep(renderName,Enum.RenderPriority.Camera.Value+10,function(raw
     end
     if state=="caught" then
         if scare then
-            local t=elapsed-scare.started
+            local t=Config.Development and Config.PreviewScareTime or elapsed-scare.started
             local camera=workspace.CurrentCamera
             local intensity=math.max(0,1-t/2.4)
             camera.CFrame=scare.camera*CFrame.Angles(math.sin(t*57)*.025*intensity,math.sin(t*43)*.035*intensity,math.sin(t*67)*.025*intensity)
@@ -589,17 +603,18 @@ Run:BindToRenderStep(renderName,Enum.RenderPriority.Camera.Value+10,function(raw
             local distance=math.max(1.6,5.8-t*15)
             local face=camera.CFrame*CFrame.new(0,0,-distance)
             scare.enemy.model:PivotTo(CFrame.lookAt(face.Position,camera.CFrame.Position)*CFrame.new(0,-7.2,0))
-            lanternPart.CFrame=camera.CFrame;lantern.Enabled=true;lantern.Brightness=4
+            lanternPart.CFrame=camera.CFrame;lantern.Enabled=true;lantern.Brightness=.8
             veil.BackgroundTransparency=t>1.9 and math.max(0,1-(t-1.9)/.6) or 1
             if t>2.15 then caption.Text=tr("그것이 당신의 이름을 기억했다.","It remembers your name.") end
         end
-        if elapsed>modalUntil then leave(tr("마을에 붙잡혔다. 문에서 다시 도전할 수 있습니다.","The village caught you. Try again at the gate.")) end
+        if elapsed>modalUntil and not (Config.Development and Config.PreviewScareTime) then leave(tr("마을에 붙잡혔다. 문에서 다시 도전할 수 있습니다.","The village caught you. Try again at the gate.")) end
         return
     end
     if elapsed>modalUntil then caption.Text="" end
     if elapsed>messageUntil then note.Text="" end
     local x=(keys[Enum.KeyCode.D] and 1 or 0)-(keys[Enum.KeyCode.A] and 1 or 0)
     local z=(keys[Enum.KeyCode.S] and 1 or 0)-(keys[Enum.KeyCode.W] and 1 or 0)
+    if Config.Development and Config.Preview then x=0;z=0 end
     local moving=x~=0 or z~=0
     local sprint=moving and keys[Enum.KeyCode.LeftShift] and stamina>1
     stamina=math.clamp(stamina+(sprint and -19 or 12)*dt,0,100)
@@ -619,7 +634,7 @@ Run:BindToRenderStep(renderName,Enum.RenderPriority.Camera.Value+10,function(raw
     camera.CFrame=CFrame.new(origin+position+Vector3.new(0,bob,0))*CFrame.Angles(0,yaw,0)*CFrame.Angles(pitch,0,0)
     camera.FieldOfView=camera.FieldOfView+((sprint and 78 or 70)-camera.FieldOfView)*math.min(1,dt*5)
     Input.MouseBehavior=Enum.MouseBehavior.LockCenter
-    lanternPart.CFrame=camera.CFrame*CFrame.new(.65,-.45,-.3);lantern.Enabled=flashlight;lantern.Brightness=3
+    lanternPart.CFrame=camera.CFrame*CFrame.new(.65,-.45,-.3);lantern.Enabled=flashlight;lantern.Brightness=1.5
     meter.Size=UDim2.fromScale(.2*stamina/100,.003)
     objective.Text=state=="escape" and tr("마지막 밤 · 남쪽 붉은 문으로 탈출","FINAL NIGHT · Escape through the southern red gate") or count==5 and tr("다섯째 밤 · 신사의 종을 울려라","NIGHT V · Ring the shrine bell") or tr(stageNames[stage][1],stageNames[stage][2]).."  ·  "..seals[stage].name
     prompt.Text=""
@@ -663,7 +678,7 @@ function api:GetStatus() return {active=active,building=building,ready=ready,sta
 if Config.Development then
     function api:PreviewStage(index) assert(active and index>=1 and index<=5);Config.Preview=true;beginStage(index) end
     function api:PreviewCamera(pos,angle) position=pos;yaw=angle or math.pi;pitch=0 end
-    function api:PreviewCatch() assert(active and enemies[1]);catch(enemies[1]) end
+    function api:PreviewCatch(holdTime) assert(active and enemies[1]);Config.PreviewScareTime=holdTime;catch(enemies[1]) end
     function api:PreviewInteract() interact() end
 end
 api.Config=Config

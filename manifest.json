@@ -7,34 +7,6 @@
       "bytes": 846764,
       "sha256": "e44cb1515d252c9e0e8b3cefef02eebbc7e0587c60d618df67d9dcd874587607"
     },
-    "assets/audio/Drone.wav": {
-      "bytes": 2116844,
-      "sha256": "fb139e4bd166b3135d119a777953f29bd096d6baa224464ae2718a529f786383"
-    },
-    "assets/audio/Step.wav": {
-      "bytes": 98828,
-      "sha256": "cd2fae9a061afaf33637620dcdd97930d34899530b707cc17d98e4fb3ab4f4c9"
-    },
-    "assets/audio/Stinger.wav": {
-      "bytes": 546884,
-      "sha256": "25b38f6861b3f36f94762562062f5cf66420d6f4348a3ce5e57a3a1a0e143fa2"
-    },
-    "assets/audio/Whisper.wav": {
-      "bytes": 635084,
-      "sha256": "da6127a77348d1f6b0af31baf2d4dc1964683fb1aa664b7d099fe6d29be346ea"
-    },
-    "assets/audio/Wind.wav": {
-      "bytes": 2116844,
-      "sha256": "6f6ac0119dbf91969bc92b066eb11aca7a7958ca5d9be865fe24e4cf2ec098ae"
-    },
-    "assets/monsters.json": {
-      "bytes": 3366544,
-      "sha256": "a61060de83b92be5566a6f04853aa57d32b7f8dfa0c54d8b4d29fe2ab345dc88"
-    },
-    "assets/village.json": {
-      "bytes": 5052060,
-      "sha256": "e71629c5a0afbb22c1e34f492783dd9e50b99a1b5a8acc8174c0e04cc508fcec"
-    },
     "assets/audio/Breath.wav": {
       "bytes": 705644,
       "sha256": "961dd84b6ec39613395c5cef20ce631206987c2998e616297b31b7e25897b680"
@@ -42,6 +14,10 @@
     "assets/audio/Chase.wav": {
       "bytes": 1411244,
       "sha256": "ed949b18e2765e1c0e713e3c90b4541352261985aecafc17d812096dcc06db2c"
+    },
+    "assets/audio/Drone.wav": {
+      "bytes": 2116844,
+      "sha256": "fb139e4bd166b3135d119a777953f29bd096d6baa224464ae2718a529f786383"
     },
     "assets/audio/Heartbeat.wav": {
       "bytes": 705644,
@@ -55,13 +31,41 @@
       "bytes": 98828,
       "sha256": "744669e6effd78a0d8c651eafb553f974b2c47970e45e6b1c9272d29195798c4"
     },
+    "assets/audio/Step.wav": {
+      "bytes": 98828,
+      "sha256": "cd2fae9a061afaf33637620dcdd97930d34899530b707cc17d98e4fb3ab4f4c9"
+    },
     "assets/audio/Step2.wav": {
       "bytes": 98828,
       "sha256": "456c5ecf25f7e14a515d0a5fa7145d9a064948add372547ef10a3f7f70ae2fb3"
     },
+    "assets/audio/Stinger.wav": {
+      "bytes": 546884,
+      "sha256": "25b38f6861b3f36f94762562062f5cf66420d6f4348a3ce5e57a3a1a0e143fa2"
+    },
     "assets/audio/Transition.wav": {
       "bytes": 635084,
       "sha256": "e1949de789855c86f101070c24ff5cc027bf211545b2173714c257e1e33dfdad"
+    },
+    "assets/audio/Whisper.wav": {
+      "bytes": 635084,
+      "sha256": "da6127a77348d1f6b0af31baf2d4dc1964683fb1aa664b7d099fe6d29be346ea"
+    },
+    "assets/audio/Wind.wav": {
+      "bytes": 2116844,
+      "sha256": "6f6ac0119dbf91969bc92b066eb11aca7a7958ca5d9be865fe24e4cf2ec098ae"
+    },
+    "assets/monsters.json": {
+      "bytes": 2418951,
+      "sha256": "425d3202d3767d630974df4eb05b3ad5dabf5daa323befd7660c00d31f775b61"
+    },
+    "assets/textures/spirit-face.png": {
+      "bytes": 3727770,
+      "sha256": "5ad7d255fe319291a64cd87475bcdac59c07b4e8118b67ebf15dedcedaff96d7"
+    },
+    "assets/village.json": {
+      "bytes": 5885761,
+      "sha256": "af590dd18a9994a61b6544369d8fd071d30df7ff15a69721827946a5110959d0"
     }
   }
 }

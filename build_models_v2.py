@@ -20,7 +20,7 @@ def cf(x=0,y=0,z=0,ry=0):
 def tint(color,f): return [min(255,max(0,round(v*f))) for v in color]
 
 class Mesh:
-    def __init__(self): self.vertices=[]; self.faces=[]; self.colors=[]; self.smooth=set()
+    def __init__(self): self.vertices=[]; self.faces=[]; self.colors=[]; self.smooth=set();self.uvs={}
     def vert(self,v):
         self.vertices.append([round(float(x),4) for x in v]); return len(self.vertices)
     def tri(self,a,b,c,color):
@@ -75,7 +75,7 @@ class Mesh:
         for i,n in enumerate(normals):
             length=np.linalg.norm(n)
             norms.append([round(float(v),5) for v in n/length] if i+1 in self.smooth and length>1e-8 else False)
-        return {'vertices':self.vertices,'faces':self.faces,'colors':self.colors,'normals':norms}
+        return {'vertices':self.vertices,'faces':self.faces,'colors':self.colors,'normals':norms,'uvs':[self.uvs.get(i+1,False) for i in range(len(self.vertices))]}
 
 class Scene:
     def __init__(self,name):self.name=name;self.parts=[];self.lights=[];self.signs=[];self.meshes={};self.instances=[]
@@ -190,6 +190,9 @@ for z in [-240,-120,0,120,240]:world.part('Cross street',[590,.12,15],cf(0,.04,z
 for x in [-240,-120,120,240]:world.part('Side street',[12,.12,550],cf(x,.04,0),(98,108,105),'Cobblestone')
 for i,(z,x) in enumerate((z,x) for z in [-185,-65,65,185] for x in [-180,-60,60,180]):
     place_house(x,z,PI/2 if x<0 else -PI/2,i%4)
+for i,z in enumerate([-285,-175,-55,65,185]):
+    place_house(-36,z,-PI/2,(i+1)%4)
+    place_house(36,z,PI/2,(i+2)%4)
 
 # Shrine is a unique triple-roof pavilion with a broad ceremonial gable.
 shrine=Mesh(); sr=Mesh(); sw=Mesh()
@@ -250,7 +253,7 @@ for variant in range(4):
             a=j*math.tau/5+level*.7
             tip=(math.cos(a)*radius,y+.6,math.sin(a)*radius)
             tree.beam((0,y-1,0),tip,.22,WOOD,5,.06)
-            leaves.loft([(tip[0]*.5,y-1,tip[2]*.5,radius*.65,radius*.65),(tip[0]*.45,y+.5,tip[2]*.45,radius*.58,radius*.58),(tip[0]*.3,y+5,tip[2]*.3,.04,.04)],tint((62,100,84),R.uniform(.8,1.2)),7,phase=a)
+            leaves.ellipsoid((tip[0]*.65,y+.6,tip[2]*.65),(radius*1.25,2.4,radius*1.18),tint((62,100,84),R.uniform(.8,1.2)),10,5)
     world.register('Cedar trunk'+str(variant),tree,'Wood');world.register('Cedar crown'+str(variant),leaves,'Grass')
 for i in range(100):
     a=R.uniform(0,math.tau);x=math.cos(a)*R.uniform(285,350);z=math.sin(a)*R.uniform(335,380)
@@ -403,7 +406,7 @@ for z in [-225,-105,15,135,255]:
 monsters=[]
 for variant in range(5):
     scene=Scene(['The Veiled Widow','The Hollow Monk','The Red Keeper','The Well Crawler','The Bell Warden'][variant])
-    cloth=Mesh();skin=Mesh();dark=Mesh();accent=Mesh()
+    cloth=Mesh();skin=Mesh();dark=Mesh();accent=Mesh();face=Mesh()
     robes=[(170,173,155),(49,56,58),(112,42,35),(62,80,73),(61,53,46)];robe=robes[variant]
     # Continuous tailored silhouette with irregular pleated hem and narrow waist.
     cloth.loft([(0,.2,0,1.75,1.1),(.1,.7,0,1.8,1.1),(-.1,2,0,1.45,.85),(0,3.6,0,1,.65),(0,4.7,0,.85,.55),(0,5.4,0,1.55,.6),(0,5.8,0,.75,.5)],robe,32,pleat=.10)
@@ -434,31 +437,18 @@ for variant in range(5):
             socket=sum(math.exp(-((x-side*.35)/.23)**2-((y-7.46)/.26)**2) for side in [-1,1])
             nose=math.exp(-(x/.11)**2-((y-7.18)/.38)**2)
             cheek=sum(math.exp(-((x-side*.53)/.18)**2-((y-7.05)/.28)**2) for side in [-1,1])
-            wrinkle=.014*math.sin(y*55+x*30)*math.sin(v*PI)
+            wrinkle=.003*math.sin(y*55+x*30)*math.sin(v*PI)
             z+=.15*socket-.20*nose-.075*cheek+wrinkle
-            row.append(skin.vert((x,y,z)))
-        grid.append(row);skin.smooth.update(row)
+            mouth=math.exp(-(x/.30)**4-((y-6.6)/.25)**4)
+            z+=.16*mouth
+            idx=face.vert((x,y,z));row.append(idx)
+            ty=(.5+(7.18-y)*(.5/1.06)) if y<=7.18 else (.3+(7.46-y)*(.2/.28) if y<=7.46 else (8.24-y)*(.3/.78))
+            face.uvs[idx]=[round(max(0,min(1,.5+x/(1.64*headscale))),5),round(max(0,min(1,ty)),5)]
+        grid.append(row);face.smooth.update(row)
     for j in range(48):
         for i in range(48):
-            p=np.array(skin.vertices[grid[j][i]-1]);x,y,z=p
-            socket=sum(math.exp(-((x-side*.35)/.27)**2-((y-7.46)/.28)**2) for side in [-1,1])
-            weather=.90+.07*math.sin(x*63+y*45)*math.sin(y*93-x*72)-.50*min(1,socket)
-            skin.quad(grid[j][i],grid[j+1][i],grid[j+1][i+1],grid[j][i+1],tint((202,194,165),weather))
+            face.quad(grid[j][i],grid[j+1][i],grid[j+1][i+1],grid[j][i+1],[(225,230,223),(195,207,200),(220,195,179),(169,198,182),(201,198,174)][variant])
     skin.ellipsoid((0,7.2,.05),(1.4,1.8,.9),(143,143,119),24,16)
-    for side in [-1,1]:
-        dark.ellipsoid((side*.35,7.46,-.63),(.48,.47,.20),(27,24,21),24,12)
-        skin.ellipsoid((side*.35,7.46,-.715),(.23,.23,.10),(176,167,125),20,10)
-        dark.ellipsoid((side*.35,7.46,-.77),(.14,.17,.04),(19,20,17),16,8)
-        accent.ellipsoid((side*.32,7.49,-.798),(.045,.045,.025),(241,213,147),10,6)
-        skin.beam((side*.1,7.75,-.59),(side*.61,7.72,-.50),.08,(159,153,128),12,.04)
-        for j in range(3):dark.beam((side*(.32+j*.04),7.15-j*.2,-.65),(side*(.36+j*.04),7-j*.2,-.64),.018,(98,77,66),4)
-    skin.loft([(0,6.99,-.72,.11,.12),(0,7.12,-.75,.14,.16),(0,7.5,-.59,.055,.06)],(207,198,166),8)
-    dark.ellipsoid((0,6.62,-.64),(.70,.65,.12),(28,18,17),28,16)
-    for j in range(10):
-        x=(j-4.5)*.055
-        for side in [-1,1]:
-            y=6.62+side*(.20+.05*math.cos(x*6))
-            skin.loft([(x,y-.065,-.72,.023,.028),(x,y+.065,-.72,.03,.035)],(169,156,119),7)
     if variant==0:
         # Flowing separate hair locks; face remains visible through the silhouette.
         for j in range(15):
@@ -498,7 +488,9 @@ for variant in range(5):
     # Invisible anchor for spatial sound, followed by separate material meshes.
     scene.part('Voice anchor',[.1,.1,.1],cf(0,6,0),alpha=1,collide=False)
     for name,m,mat in [('Cloth',cloth,'Fabric'),('Porcelain',skin,'SmoothPlastic'),('Hair and inlays',dark,'SmoothPlastic'),('Ornaments',accent,'Metal')]:
-        key=f'spirit{variant}_{name}';scene.register(key,m,mat);scene.inst(key,cf())
+        if m.faces:
+            key=f'spirit{variant}_{name}';scene.register(key,m,mat);scene.inst(key,cf())
+    key=f'spirit{variant}_Sculpted face';scene.register(key,face,'SmoothPlastic');scene.meshes[key]['texture']='assets/textures/spirit-face.png';scene.inst(key,cf())
     monsters.append(scene.data())
 
 assets=BASE/'assets'
