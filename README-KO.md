@@ -2,7 +2,7 @@
 
 직접 만든 일본 산골 마을 테마의 **플레이 가능한 첫 버전**입니다. 모델은 Roblox 에셋 ID가 아닌 JSON 데이터로 배포합니다. GitHub의 raw 파일을 읽어 로컬 Part/WedgePart 모델로 복원합니다. 모델 데이터 안의 코드는 실행하지 않습니다.
 
-실제 Roblox 클라이언트에서의 플레이·프레임률·최종 화면 품질은 아직 검증되지 않았습니다. 고해상도 텍스처나 전문 조형 메시를 사용한 완성형 게임이 아니라, 독자적으로 만든 부품 기반 환경과 괴물입니다.
+2026-10-14 실제 Roblox 클라이언트에서 GitHub raw 로딩, 마을 생성, 카메라 전환 및 배경음 로드/재생 상태를 확인했습니다. 전체 플레이·프레임률·최종 화면 품질은 아직 검증되지 않았습니다. 고해상도 텍스처나 전문 조형 메시를 사용한 완성형 게임이 아니라, 독자적으로 만든 부품 기반 환경과 괴물입니다.
 
 ## 포함 내용
 
@@ -26,7 +26,7 @@
 
 배포 저장소: https://github.com/MuyoPing/kage-village
 
-`PLAY-GITHUB.luau`는 이 저장소의 `main`에서 게임과 자산을 불러오도록 설정되어 있습니다. 실행기에 다음 코드를 넣으세요.
+`PLAY-GITHUB.luau`는 이 저장소의 고정 커밋 `37069aa3cab4a2b8b8adc1434be7305d2f8d09ee`에서 게임과 자산을 불러오도록 설정되어 있습니다. 실행기에 다음 코드를 넣으세요.
 
 ```lua
 loadstring(game:HttpGet("https://raw.githubusercontent.com/MuyoPing/kage-village/main/PLAY-GITHUB.luau"))()
