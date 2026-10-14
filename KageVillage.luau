@@ -1,4 +1,4 @@
--- 影の里 / KAGE VILLAGE — local horror experience, v1.0
+-- 影の里 / KAGE VILLAGE — original triangulated mesh edition, v2.0
 -- Standalone client script. E interact, WASD move, mouse look, Shift sprint,
 -- F lantern, M volume, Q quality, Backspace leave, Delete unload (outside).
 -- Models are original JSON geometry loaded from GitHub or the local workspace.
@@ -96,6 +96,8 @@ local function relocatePortal()
 end
 relocatePortal()
 local Http=game:GetService("HttpService")
+local AssetService=game:GetService("AssetService")
+local meshCache,editableMeshes={},{}
 local function assetBytes(path)
     assert(not path:find("..",1,true), "Invalid asset path")
     if Config.BaseUrl~="" then
@@ -107,7 +109,7 @@ local function assetBytes(path)
 end
 local function assetJSON(path)
     local value=Http:JSONDecode(assetBytes(path))
-    assert(type(value)=="table" and value.schema==1,"Unsupported model format: "..path)
+    assert(type(value)=="table" and (value.schema==1 or value.schema==2),"Unsupported model format: "..path)
     return value
 end
 local audioAssets={}
@@ -149,6 +151,55 @@ local function objectivePoint(pos,name,description)
     table.insert(seals,{position=pos+Vector3.new(0,4,0),part=seal,pedestal=pedestal,collected=false,name=name,story=description,light=h})
 end
 local monsterData
+local function meshTemplate(key,data)
+    if meshCache[key] then return meshCache[key] end
+    assert(type(data.vertices)=="table" and #data.vertices<=60000,"Invalid mesh vertices")
+    assert(type(data.faces)=="table" and #data.faces<=20000,"Invalid mesh triangles")
+    local editable=AssetService:CreateEditableMesh()
+    assert(editable,"3D mesh memory unavailable. Close other mesh experiences and retry.")
+    editableMeshes[#editableMeshes+1]=editable
+    local low,highBound=Vector3.new(math.huge,math.huge,math.huge),Vector3.new(-math.huge,-math.huge,-math.huge)
+    local positions={}
+    for i,v in ipairs(data.vertices) do
+        assert(#v==3,"Invalid mesh vertex")
+        for _,n in ipairs(v) do assert(type(n)=="number" and n==n and math.abs(n)<10000,"Invalid mesh coordinate") end
+        local p=Vector3.new(v[1],v[2],v[3]);positions[i]=p
+        low=low:Min(p);highBound=highBound:Max(p)
+    end
+    local center=(low+highBound)*.5
+    local vertices,uvs,colors,normals={},{},{},{}
+    for i,p in ipairs(positions) do
+        vertices[i]=editable:AddVertex(p-center)
+        uvs[i]=editable:AddUV(Vector2.new((p.X+p.Y)*.12,(p.Z+p.Y)*.12))
+    end
+    for i,f in ipairs(data.faces) do
+        assert(#f==3 and vertices[f[1]] and vertices[f[2]] and vertices[f[3]],"Invalid mesh face")
+        local n=(positions[f[2]]-positions[f[1]]):Cross(positions[f[3]]-positions[f[1]])
+        if n.Magnitude>.000001 then
+            local face=editable:AddTriangle(vertices[f[1]],vertices[f[2]],vertices[f[3]])
+            local c=data.colors[i];local ck=table.concat(c,",")
+            if not colors[ck] then colors[ck]=editable:AddColor(Color3.fromRGB(c[1],c[2],c[3]),1) end
+            editable:SetFaceColors(face,{colors[ck],colors[ck],colors[ck]})
+            editable:SetFaceUVs(face,{uvs[f[1]],uvs[f[2]],uvs[f[3]]})
+            n=n.Unit;local nk=string.format("%.3f,%.3f,%.3f",n.X,n.Y,n.Z)
+            if not normals[nk] then normals[nk]=editable:AddNormal(n) end
+            editable:SetFaceNormals(face,{normals[nk],normals[nk],normals[nk]})
+        end
+        if i%400==0 then task.wait();if not alive then error("Loading cancelled") end end
+    end
+    -- Fixed topology uses less client memory; keep the content alive for clones.
+    local compactOk,compact=pcall(function() return AssetService:CreateEditableMeshAsync(Content.fromObject(editable),{FixedSize=true}) end)
+    if compactOk and compact then
+        editable:Destroy();editableMeshes[#editableMeshes]=compact;editable=compact
+    end
+    local template=AssetService:CreateMeshPartAsync(Content.fromObject(editable),{CollisionFidelity=Enum.CollisionFidelity.Box,RenderFidelity=Enum.RenderFidelity.Precise})
+    if not alive then template:Destroy();editable:Destroy();error("Loading cancelled") end
+    template.Name=key;template.Anchored=true;template.CanCollide=false;template.CanTouch=false;template.CanQuery=false
+    template.DoubleSided=true;template.Color=Color3.new(1,1,1)
+    template.Material=Enum.Material[data.material] or Enum.Material.SmoothPlastic
+    local result={part=template,center=center};meshCache[key]=result
+    return result
+end
 local function buildGeometry(data,parent,offset)
     assert(type(data.parts)=="table" and #data.parts<=20000,"Invalid geometry count")
     local parts={}
@@ -180,6 +231,18 @@ local function buildGeometry(data,parent,offset)
             task.wait()
         end
     end
+    for i,d in ipairs(data.instances or {}) do
+        if not alive then error("Loading cancelled") end
+        local definition=assert(data.meshes[d.mesh],"Missing mesh definition")
+        local cached=meshTemplate(d.mesh,definition)
+        local piece=cached.part:Clone()
+        piece.CFrame=CFrame.new(offset)*CFrame.new(table.unpack(d.cf))*CFrame.new(cached.center)
+        piece.Parent=parent
+        if i%20==0 then
+            caption.Text=tr("影の里\n3D 마을 조립 중 ","KAGE VILLAGE\nAssembling 3D village ")..math.floor(i/#data.instances*100).."%"
+            task.wait()
+        end
+    end
     return parts
 end
 local function buildMap()
@@ -193,7 +256,7 @@ local function buildMap()
     local parts=buildGeometry(world,map,origin)
     for _,d in ipairs(world.lights or {}) do
         local l=make("PointLight",{Color=Color3.fromRGB(table.unpack(d.color)),Brightness=d.brightness,Range=d.range,Shadows=false},parts[d.part])
-        lights[#lights+1]={light=l,position=Vector3.new(table.unpack(d.position)),phase=rng:NextNumber(0,6)}
+        lights[#lights+1]={light=l,position=Vector3.new(table.unpack(d.position)),phase=rng:NextNumber(0,6),brightness=d.brightness}
     end
     for _,d in ipairs(world.signs or {}) do
         local surface=make("SurfaceGui",{Face=Enum.NormalId.Front,PixelsPerStud=32},parts[d.part])
@@ -284,16 +347,16 @@ local function effects()
     local camera=workspace.CurrentCamera
     snapshot.cameraType=camera.CameraType;snapshot.subject=camera.CameraSubject;snapshot.cameraCF=camera.CFrame;snapshot.fov=camera.FieldOfView
     snapshot.mouse=Input.MouseBehavior;snapshot.icon=Input.MouseIconEnabled
-    local settings={ClockTime=0.2,Brightness=1.3,Ambient=Color3.fromRGB(30,35,43),OutdoorAmbient=Color3.fromRGB(43,50,62),ExposureCompensation=-.35,GlobalShadows=true,FogColor=Color3.fromRGB(33,43,48),FogStart=20,FogEnd=260}
+    local settings={ClockTime=4.6,Brightness=2.1,Ambient=Color3.fromRGB(91,106,119),OutdoorAmbient=Color3.fromRGB(119,138,151),ExposureCompensation=.15,GlobalShadows=true,FogColor=Color3.fromRGB(94,123,137),FogStart=90,FogEnd=480}
     for k,v in pairs(settings) do snapshot.lighting[k]=Lighting[k];Lighting[k]=v end
     for _,o in ipairs(Lighting:GetChildren()) do
         if o:IsA("PostEffect") then snapshot.enabled[o]=o.Enabled;o.Enabled=false
         elseif o:IsA("Atmosphere") then snapshot.atmospheres[o]=o.Parent;o.Parent=nil end
     end
-    local at=make("Atmosphere",{Density=.47,Offset=.1,Color=Color3.fromRGB(121,142,153),Decay=Color3.fromRGB(35,46,50),Glare=.08,Haze=2.6},Lighting)
-    local cc=make("ColorCorrectionEffect",{Brightness=-.04,Contrast=.2,Saturation=-.4,TintColor=Color3.fromRGB(208,224,230)},Lighting)
-    local bloom=make("BloomEffect",{Intensity=.3,Size=22,Threshold=1.1},Lighting)
-    local dof=make("DepthOfFieldEffect",{FarIntensity=.18,NearIntensity=0,FocusDistance=28,InFocusRadius=38,Enabled=high},Lighting)
+    local at=make("Atmosphere",{Density=.27,Offset=.15,Color=Color3.fromRGB(172,193,198),Decay=Color3.fromRGB(77,103,116),Glare=.08,Haze=1.4},Lighting)
+    local cc=make("ColorCorrectionEffect",{Brightness=.015,Contrast=.12,Saturation=-.08,TintColor=Color3.fromRGB(230,240,246)},Lighting)
+    local bloom=make("BloomEffect",{Intensity=.16,Size=20,Threshold=1.8},Lighting)
+    local dof=make("DepthOfFieldEffect",{FarIntensity=.12,NearIntensity=0,FocusDistance=40,InFocusRadius=65,Enabled=high},Lighting)
     postEffects={at,cc,bloom,dof}
     local h=snapshot.humanoid
     if h then snapshot.speed=h.WalkSpeed;snapshot.jump=h.JumpPower;snapshot.rotate=h.AutoRotate;h.WalkSpeed=0;h.JumpPower=0;h.AutoRotate=false end
@@ -313,7 +376,7 @@ enter=function()
         character=player.Character
         if not character or not character:FindFirstChildOfClass("Humanoid") then leave();return end
         for _,e in ipairs(enemies) do e.model:Destroy() end;table.clear(enemies)
-        count=0;stamina=100;elapsed=0;position=gatePosition+Vector3.new(0,0,8);yaw=math.pi;pitch=0;state="explore"
+        count=0;stamina=100;elapsed=0;stepTimer=0;aiTimer=0;position=gatePosition+Vector3.new(0,0,8);yaw=math.pi;pitch=0;state="explore"
         for _,s in ipairs(seals) do s.collected=false;s.part.Transparency=0;s.light.Enabled=true end
         for i,p in ipairs({Vector3.new(-240,4.8,0),Vector3.new(240,4.8,120),Vector3.new(0,4.8,240)}) do enemies[i]=monster(p,i) end
         effects();active=true;cross.Visible=true;meter.Visible=true
@@ -460,7 +523,7 @@ Run:BindToRenderStep(renderName,Enum.RenderPriority.Camera.Value+10,function(raw
     if aiTimer>=.1 then stepAI(aiTimer,sprint);aiTimer=0 end
     for _,l in ipairs(lights) do
         l.light.Enabled=(l.position-position).Magnitude<(high and 140 or 75)
-        if l.light.Enabled then l.light.Brightness=1.4+math.sin(elapsed*8+l.phase)*.15 end
+        if l.light.Enabled then l.light.Brightness=l.brightness+math.sin(elapsed*5+l.phase)*.07 end
     end
 end)
 local api={}
@@ -470,6 +533,8 @@ function api:Destroy()
     Run:UnbindFromRenderStep(renderName)
     for _,c in ipairs(connections) do c:Disconnect() end
     stopSounds();restore();root:Destroy();gui:Destroy()
+    for _,entry in pairs(meshCache) do entry.part:Destroy() end;table.clear(meshCache)
+    for _,editable in ipairs(editableMeshes) do editable:Destroy() end;table.clear(editableMeshes)
     if env.KageVillage==self then env.KageVillage=nil end
 end
 function api:MoveEntrance() relocatePortal() end
