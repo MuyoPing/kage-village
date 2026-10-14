@@ -1,5 +1,5 @@
 """Original 44.1 kHz stereo foley and cinematic horror sound design.
-No third-party recordings. Reproducible layered synthesis with short room tails.
+CC0 monster recording credited in ASSET-NOTES.md. Reproducible layered synthesis with short room tails.
 """
 from pathlib import Path
 import numpy as np
@@ -57,21 +57,22 @@ t=timeline(3.6);n=len(t)
 breathy=noise(n,250,4500,.3)*(.16*np.exp(-((t-1.1)/.5)**2)+.12*np.exp(-((t-2.4)/.7)**2))
 write('Whisper',tail(breathy*(.7+.3*np.sin(2*np.pi*27*t))),width=.45)
 
-# Catch: short inhalation, layered impact, distorted vocal resonances, decay.
-t=timeline(3.1);n=len(t)
-attack=np.minimum(t/.022,1)*np.exp(-t*2.5)
-f0=142+63*np.exp(-t*3)+18*np.sin(t*29)+5*noise(n,0,20)
-phase=np.cumsum(f0)/SR*2*np.pi
-voice=np.zeros(n)
-for h in range(1,26):
-    f=h*180
-    formant=sum(np.exp(-((f-c)/bw)**2)*gain for c,bw,gain in [(730,280,1),(1460,400,.6),(2600,650,.3)])
-    voice+=np.sin(phase*h+rng.uniform(0,1))*(.025+formant*.075)/np.sqrt(h)
-voice=np.tanh(voice*2)*attack*(.75+.25*np.sin(t*51))
-sub=np.sin(2*np.pi*(52*t+15*(1-np.exp(-t*12))))*np.exp(-t*7)*.55
-impact=noise(n,80,3500,.3)*np.exp(-t*25)*.3
-scrape=noise(n,650,5500)*np.exp(-t*3.5)*(.10+.08*np.sin(t*79))
-write('Stinger',tail(voice+sub+impact+scrape,(.038,.083,.17,.31),(.25,.21,.15,.08)),width=.35)
+# CC0 recorded monster performance: remove bass rumble, keep vocal attack.
+from scipy.signal import butter, sosfiltfilt, resample_poly
+with wave.open(str(BASE/'source-audio/monster-CC0.wav'),'rb') as source:
+    rate=source.getframerate();channels=source.getnchannels()
+    raw=np.frombuffer(source.readframes(source.getnframes()),dtype='<i2').astype(float)/32768
+    raw=raw.reshape(-1,channels).mean(axis=1)
+raw=resample_poly(raw,SR,rate)
+raw=sosfiltfilt(butter(4,[240,6200],btype='bandpass',fs=SR,output='sos'),raw)
+# Start at the first significant attack, with a tiny preroll to avoid a click.
+energy=np.convolve(raw**2,np.ones(441)/441,mode='same')
+start=max(0,int(np.flatnonzero(energy>energy.max()*.13)[0])-220)
+t=timeline(2.8);n=len(t);voice=np.zeros(n);clip=raw[start:start+n]
+voice[:len(clip)]=clip;voice*=.55/max(.001,np.max(np.abs(voice)))
+voice*=np.minimum(t/.004,1)*np.minimum((2.8-t)/.38,1)
+impact=noise(n,900,7400)*np.exp(-t*70)*.085
+write('Stinger',tail(voice+impact,(.043,.109,.191),(.15,.09,.035)),width=.14)
 
 t=timeline(4);n=len(t);beat=np.zeros(n)
 for at in np.arange(.1,4,.8):

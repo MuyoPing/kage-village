@@ -403,95 +403,55 @@ world.register('Lantern festival rope',string,'Fabric');world.register('Hanging 
 for z in [-225,-105,15,135,255]:
     for key in ['Lantern festival rope','Hanging paper lanterns']:world.inst(key,cf(0,0,z))
 
-monsters=[]
-for variant in range(5):
-    scene=Scene(['The Veiled Widow','The Hollow Monk','The Red Keeper','The Well Crawler','The Bell Warden'][variant])
-    cloth=Mesh();skin=Mesh();dark=Mesh();accent=Mesh();face=Mesh()
-    robes=[(170,173,155),(49,56,58),(112,42,35),(62,80,73),(61,53,46)];robe=robes[variant]
-    # Continuous tailored silhouette with irregular pleated hem and narrow waist.
-    cloth.loft([(0,.2,0,1.75,1.1),(.1,.7,0,1.8,1.1),(-.1,2,0,1.45,.85),(0,3.6,0,1,.65),(0,4.7,0,.85,.55),(0,5.4,0,1.55,.6),(0,5.8,0,.75,.5)],robe,32,pleat=.10)
-    cloth.loft([(0,3.8,0,1.06,.7),(0,4.3,0,1.05,.69)],(87,72,51),24)
-    skin.loft([(0,5.6,0,.35,.3),(0,6.8,-.1,.3,.28)],(167,157,128),12)
-    # Asymmetric hunched pose and individually jointed long fingers.
-    for side in [-1,1]:
-        elbow=(side*1.9,3.8,-.15);hand=(side*2.1,2.1,-.5)
-        cloth.beam((side*1.15,5.25,0),elbow,.55,robe,12,.38)
-        cloth.beam(elbow,(side*2.05,2.8,-.4),.38,robe,12,.24)
-        skin.beam((side*2.05,2.9,-.4),hand,.19,(169,160,137),9,.16)
-        skin.ellipsoid((side*2.1,1.95,-.5),(.5,.65,.3),(169,160,137),10,6)
-        for finger in range(4):
-            x=side*2.1+(finger-1.5)*.135;y=1.7-abs(finger-1.5)*.07
-            mid=(x,1.05,-.65);tip=(x,.65,-.87)
-            skin.beam((x,y,-.5),mid,.065,(171,160,132),6,.05)
-            skin.beam(mid,tip,.05,(171,160,132),6,.025)
-            dark.beam(tip,(x,.45,-1),.035,TRIM,5,.002)
-    # Sculpted, mottled face surface: recessed sockets, cheekbones, nose ridge,
-    # stretched jaw and wrinkles are geometry and vertex color, not flat decals.
-    grid=[];headscale=[1,1,1.12,.92,1.25][variant]
-    for j in range(49):
-        v=j/48;row=[]
-        for i in range(49):
-            u=i/48;ang=(u-.5)*PI
-            y=6.12+v*2.12;x=math.sin(ang)*(.42+.39*math.sin(v*PI))*headscale
-            z=-.22-math.cos(ang)*(.4+.22*math.sin(v*PI))
-            socket=sum(math.exp(-((x-side*.35)/.23)**2-((y-7.46)/.26)**2) for side in [-1,1])
-            nose=math.exp(-(x/.11)**2-((y-7.18)/.38)**2)
-            cheek=sum(math.exp(-((x-side*.53)/.18)**2-((y-7.05)/.28)**2) for side in [-1,1])
-            wrinkle=.003*math.sin(y*55+x*30)*math.sin(v*PI)
-            z+=.15*socket-.20*nose-.075*cheek+wrinkle
-            mouth=math.exp(-(x/.30)**4-((y-6.6)/.25)**4)
-            z+=.16*mouth
-            idx=face.vert((x,y,z));row.append(idx)
-            ty=(.5+(7.18-y)*(.5/1.06)) if y<=7.18 else (.3+(7.46-y)*(.2/.28) if y<=7.46 else (8.24-y)*(.3/.78))
-            face.uvs[idx]=[round(max(0,min(1,.5+x/(1.64*headscale))),5),round(max(0,min(1,ty)),5)]
-        grid.append(row);face.smooth.update(row)
-    for j in range(48):
-        for i in range(48):
-            face.quad(grid[j][i],grid[j+1][i],grid[j+1][i+1],grid[j][i+1],[(225,230,223),(195,207,200),(220,195,179),(169,198,182),(201,198,174)][variant])
-    skin.ellipsoid((0,7.2,.05),(1.4,1.8,.9),(143,143,119),24,16)
-    if variant==0:
-        # Flowing separate hair locks; face remains visible through the silhouette.
-        for j in range(15):
-            a=j*math.tau/15
-            if math.sin(a)<-.45:continue
-            x,z=math.cos(a)*.7,math.sin(a)*.55
-            dark.loft([(x,4.7,z,.07,.07),(x*1.25,5.6,z*1.25,.16,.13),(x*1.2,7.4,z*1.2,.18,.15),(x*.65,8.1,z*.65,.12,.12)],(25,33,36),7)
-        cloth.loft([(0,7.8,.1,.65,.55),(0,8.22,.2,.55,.4),(0,8.3,.2,.1,.1)],(192,193,177),16)
-        for side in [-1,1]:cloth.loft([(side*.9,4.6,.35,.13,.2),(side*.95,6.4,.35,.25,.35),(side*.65,7.9,.18,.25,.3)],(184,189,173),12)
-    elif variant==1:
-        # Broad woven kasa hat, ragged collar and substantial prayer beads.
-        cloth.loft([(0,7.7,0,2.1,2.1),(0,7.9,0,2.15,2.15),(0,8.7,0,.3,.3),(0,8.8,0,.02,.02)],(136,120,75),28)
-        for i in range(28):
-            a=i*math.tau/28;dark.beam((math.cos(a)*2.1,7.83,math.sin(a)*2.1),(math.cos(a)*.25,8.71,math.sin(a)*.25),.025,(88,79,54),4)
-        for i in range(18):
-            a=i*math.tau/18;accent.ellipsoid((math.cos(a)*1.05,5+math.sin(a)*.6,-.62),(.28,.28,.28),(126,88,54),8,5)
-    elif variant==2:
-        for side in [-1,1]:
-            skin.loft([(side*.52,7.8,.02,.24,.23),(side*.8,8.25,.05,.20,.19),(side*.98,8.8,.13,.12,.11),(side*.9,9.35,.2,.005,.005)],(210,190,142),10)
-        for i in range(5):accent.box((0,4.5+i*.2,-.68),(1.8,.12,.18),(163,130,63))
-        dark.loft([(0,7.7,.2,.8,.6),(0,8.1,.2,.65,.5),(0,8.3,.2,.2,.2)],(34,31,30),16)
-    elif variant==3:
-        # Waterlogged crawler has four additional articulated, rootlike limbs.
-        for side in [-1,1]:
-            for j in range(2):
-                a=(side*.7,4.8-j*.8,.5);b=(side*(3+j*.4),5-j*1.8,.8);c=(side*(3.6+j*.5),.3,1.6+j)
-                skin.beam(a,b,.18,(119,137,116),12,.12);skin.beam(b,c,.12,(119,137,116),12,.025)
-        for j in range(18):
-            a=j*math.tau/18
-            dark.beam((math.cos(a)*.7,7.8,math.sin(a)*.6),(math.cos(a)*1.1,4.5+R.random(),math.sin(a)*.8),.08,(28,44,38),7,.015)
-    else:
-        # Bell warden carries a heavy stepped bronze crown and layered armour.
-        accent.loft([(0,7.9,.1,.95,.8),(0,8.15,.1,1,.85),(0,8.6,.1,.75,.65),(0,8.9,.1,.3,.3)],(112,119,84),28)
-        for side in [-1,1]:
-            for j in range(4):accent.box((side*1.1,5.6-j*.26,-.05),(.85,.22,1.2),(114-j*7,100-j*5,64))
-        for j in range(4):accent.box((0,4.8-j*.35,-.63),(1.8,.27,.13),(103,91,61))
-    # Invisible anchor for spatial sound, followed by separate material meshes.
-    scene.part('Voice anchor',[.1,.1,.1],cf(0,6,0),alpha=1,collide=False)
-    for name,m,mat in [('Cloth',cloth,'Fabric'),('Porcelain',skin,'SmoothPlastic'),('Hair and inlays',dark,'SmoothPlastic'),('Ornaments',accent,'Metal')]:
-        if m.faces:
-            key=f'spirit{variant}_{name}';scene.register(key,m,mat);scene.inst(key,cf())
-    key=f'spirit{variant}_Sculpted face';scene.register(key,face,'SmoothPlastic');scene.meshes[key]['texture']='assets/textures/spirit-face.png';scene.inst(key,cf())
-    monsters.append(scene.data())
+# Courtyard enclosure: timber arcades, gardens, broken screens and debris.
+enclosure=Mesh();roofline=Mesh();garden=Mesh();debris=Mesh()
+for z in range(-40,41,4):
+    for x in [-39,39]:
+        enclosure.box((x,3.2,z),(1,6.4,3.9),(117,116,99))
+        enclosure.box((x,6.6,z),(1.5,.35,4),(43,54,54))
+        enclosure.box((x,2,z),(.2,4,3.8),(68,61,47))
+for x in range(-36,37,4):
+    for z in [-40,40]:
+        if abs(x)<8:continue
+        enclosure.box((x,3.2,z),(3.9,6.4,1),(117,116,99))
+        enclosure.box((x,6.6,z),(4,.35,1.5),(43,54,54))
+for x in [-24,24]:
+    for z in range(-30,31,6):
+        roofline.box((x,4,z),(.32,8,.32),TRIM)
+        roofline.box((x,8.2,z),(6,.3,5.9),(61,67,59))
+    roofline.box((x,.2,0),(6,.25,66),WOOD)
+    roofline.box((x,7.7,0),(.4,.5,66),TRIM)
+for i in range(32):
+    x=R.choice([-1,1])*R.uniform(17,33);z=R.uniform(-33,33)
+    garden.ellipsoid((x,.35,z),(R.uniform(1,3),R.uniform(.4,1.1),R.uniform(1,3)),tint(STONE,R.uniform(.6,.95)),7,5)
+for i in range(24):
+    debris.box((R.uniform(-5,5),.15,R.uniform(-4,4)),(R.uniform(.5,2),.12,.3),tint(WOOD,R.uniform(.6,1)),R.random()*6)
+for key,m,mat in [('Courtyard walls',enclosure,'Plaster'),('Covered walkway',roofline,'Wood'),('Garden stonework',garden,'Slate'),('Broken planks',debris,'Wood')]:world.register(key,m,mat)
+for x in [-180,-60,60,180]:
+    for z in [-185,-65,65,185]:
+        for key in ['Courtyard walls','Covered walkway','Garden stonework']:world.inst(key,cf(x,0,z))
+        world.inst('Broken planks',cf(x+12,0,z-23,R.random()*6))
+        for dx in [-29,29]:
+            world.inst('Bamboo grove',cf(x+dx,0,z+27,R.random()*6))
+        # Doorways remain open on both road-facing sides.
+        for dx in [-39,39]:world.collider('Courtyard side',[1,6.4,81],cf(x+dx,3.2,z))
+        for dz in [-40,40]:
+            for dx in [-24,24]:world.collider('Courtyard facade',[31,6.4,1],cf(x+dx,3.2,z+dz))
+# Close roadside silhouettes: crooked power poles, sagging cables and notices.
+pole=Mesh();pole.beam((0,0,0),(.7,24,.2),.25,TRIM,10,.14)
+pole.box((.7,21,.2),(7,.22,.25),TRIM)
+for x in [-2.4,0,2.4]:pole.ellipsoid((x+.7,21.3,.2),(.4,.6,.4),(87,104,99),8,5)
+world.register('Utility pole',pole,'Wood')
+wire=Mesh()
+for k in range(20):
+    t=k/20;u=(k+1)/20
+    for x in [-2.4,0,2.4]:wire.beam((x,21-3*math.sin(t*PI),t*60),(x,21-3*math.sin(u*PI),u*60),.035,(24,29,28),5)
+world.register('Sagging cables',wire,'SmoothPlastic')
+for z in range(-300,301,60):
+    world.inst('Utility pole',cf(-18,0,z))
+    if z<300:world.inst('Sagging cables',cf(-18,0,z))
+from sculpt_creatures import build_creatures
+monsters=build_creatures(Scene,Mesh,cf)
 
 assets=BASE/'assets'
 for name,data in [('village.json',world.data()),('monsters.json',dict(schema=2,models=monsters))]:

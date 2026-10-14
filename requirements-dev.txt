@@ -1,0 +1,5 @@
+numpy
+lupa
+scipy
+scikit-image
+fast-simplification

@@ -41,6 +41,7 @@ local keys,snapshot={},nil
 local messageUntil,modalUntil,stepTimer,aiTimer=0,0,0,0
 local state="entrance"
 local stage=1
+local checkpointStage=1
 local stageNames={{"첫째 밤 · 빈 여관","NIGHT I · THE EMPTY INN"},{"둘째 밤 · 찻집의 손님","NIGHT II · THE LAST GUEST"},{"셋째 밤 · 우물 아래","NIGHT III · BELOW THE WELL"},{"넷째 밤 · 이름 없는 묘","NIGHT IV · THE NAMELESS GRAVES"},{"다섯째 밤 · 마지막 종","NIGHT V · THE FINAL BELL"}}
 local stageModels={1,2,4,3,5}
 local stageStarts={Vector3.new(0,4.8,-240),Vector3.new(120,4.8,-120),Vector3.new(-120,4.8,0),Vector3.new(120,4.8,240),Vector3.new(0,4.8,240)}
@@ -48,6 +49,7 @@ local stageSpawns={Vector3.new(-120,4.8,-120),Vector3.new(240,4.8,0),Vector3.new
 local scare,heartbeat,chaseSound,breathing
 local hostGuis={}
 local kunaiSession,kunaiStatus=nil,"idle"
+local sessionGeneration=0
 local high=Config.Quality=="High"
 local C={wood=Color3.fromRGB(49,36,32),dark=Color3.fromRGB(22,24,28),paper=Color3.fromRGB(176,155,117),red=Color3.fromRGB(105,28,24),stone=Color3.fromRGB(60,64,60),moss=Color3.fromRGB(37,49,38)}
 local function tr(ko,en) return Config.Language=="ko" and ko or en end
@@ -308,7 +310,7 @@ local function monster(start,index)
     local parts=buildGeometry(definition,m,Vector3.zero)
     m.WorldPivot=CFrame.new()
     m:PivotTo(CFrame.new(origin+Vector3.new(start.X,0,start.Z)))
-    return {model=m,voice=parts[1],position=start,index=index,mode="patrol",memory=0,target=nodes[(index*7)%#nodes+1],path={},pathIndex=1,planTime=0}
+    return {model=m,voice=parts[1],headHeight=definition.headHeight or 7.2,position=start,index=index,mode="patrol",memory=0,target=nodes[(index*7)%#nodes+1],path={},pathIndex=1,planTime=0}
 end
 local collision=RaycastParams.new();collision.FilterType=Enum.RaycastFilterType.Include;collision.FilterDescendantsInstances={map};collision.RespectCanCollide=true
 local function clearLine(a,b)
@@ -418,6 +420,7 @@ local function restore()
     for k,v in pairs(snapshot.lighting) do pcall(function() Lighting[k]=v end) end
     for item,parent in pairs(snapshot.atmospheres) do item.Parent=parent end
     for item,value in pairs(snapshot.enabled) do if item.Parent then item.Enabled=value end end
+    for kind,enabled in pairs(snapshot.coreGui or {}) do pcall(function() game:GetService("StarterGui"):SetCoreGuiEnabled(kind,enabled) end) end
     for _,effect in ipairs(postEffects) do effect:Destroy() end;table.clear(postEffects)
     for part,value in pairs(hidden) do if part.Parent then part.LocalTransparencyModifier=value end end;table.clear(hidden)
     if snapshot.humanoid and snapshot.humanoid.Parent then
@@ -437,14 +440,19 @@ local function effects()
     local camera=workspace.CurrentCamera
     snapshot.cameraType=camera.CameraType;snapshot.subject=camera.CameraSubject;snapshot.cameraCF=camera.CFrame;snapshot.fov=camera.FieldOfView
     snapshot.mouse=Input.MouseBehavior;snapshot.icon=Input.MouseIconEnabled
-    local settings={ClockTime=4.6,Brightness=2.1,Ambient=Color3.fromRGB(91,106,119),OutdoorAmbient=Color3.fromRGB(119,138,151),ExposureCompensation=.15,GlobalShadows=true,FogColor=Color3.fromRGB(94,123,137),FogStart=90,FogEnd=480}
+    snapshot.coreGui={}
+    for _,kind in ipairs({Enum.CoreGuiType.Chat,Enum.CoreGuiType.PlayerList,Enum.CoreGuiType.Backpack}) do
+        local ok,enabled=pcall(function() return game:GetService("StarterGui"):GetCoreGuiEnabled(kind) end)
+        if ok then snapshot.coreGui[kind]=enabled;pcall(function() game:GetService("StarterGui"):SetCoreGuiEnabled(kind,false) end) end
+    end
+    local settings={ClockTime=0.4,Brightness=1.5,Ambient=Color3.fromRGB(46,53,57),OutdoorAmbient=Color3.fromRGB(63,73,78),ExposureCompensation=-.1,GlobalShadows=true,FogColor=Color3.fromRGB(94,123,137),FogStart=45,FogEnd=250}
     for k,v in pairs(settings) do snapshot.lighting[k]=Lighting[k];Lighting[k]=v end
     for _,o in ipairs(Lighting:GetChildren()) do
         if o:IsA("PostEffect") then snapshot.enabled[o]=o.Enabled;o.Enabled=false
         elseif o:IsA("Atmosphere") then snapshot.atmospheres[o]=o.Parent;o.Parent=nil end
     end
-    local at=make("Atmosphere",{Density=.27,Offset=.15,Color=Color3.fromRGB(172,193,198),Decay=Color3.fromRGB(77,103,116),Glare=.08,Haze=1.4},Lighting)
-    local cc=make("ColorCorrectionEffect",{Brightness=.015,Contrast=.12,Saturation=-.08,TintColor=Color3.fromRGB(230,240,246)},Lighting)
+    local at=make("Atmosphere",{Density=.38,Offset=.05,Color=Color3.fromRGB(117,135,137),Decay=Color3.fromRGB(77,103,116),Glare=.08,Haze=1.4},Lighting)
+    local cc=make("ColorCorrectionEffect",{Brightness=.005,Contrast=.14,Saturation=-.28,TintColor=Color3.fromRGB(230,237,240)},Lighting)
     local bloom=make("BloomEffect",{Intensity=.16,Size=20,Threshold=1.8},Lighting)
     local dof=make("DepthOfFieldEffect",{FarIntensity=.12,NearIntensity=0,FocusDistance=40,InFocusRadius=65,Enabled=high},Lighting)
     postEffects={at,cc,bloom,dof}
@@ -458,37 +466,45 @@ local function effects()
 end
 local nextWhisper=15
 local function beginStage(index)
+    local generation=sessionGeneration
+    state="transition";building=true
     stage=index;scare=nil
     for _,enemy in ipairs(enemies) do enemy.model:Destroy() end;table.clear(enemies)
-    enemies[1]=monster(stageSpawns[index],stageModels[index])
-    position=stageStarts[index];yaw=math.pi;pitch=0;stamina=100;state="explore"
+    local nextEnemy=monster(stageSpawns[index],stageModels[index])
+    if not alive or generation~=sessionGeneration then nextEnemy.model:Destroy();building=false;return false end
+    enemies[1]=nextEnemy
+    checkpointStage=index
+    position=stageStarts[index];yaw=math.pi;pitch=0;stamina=100;state="explore";building=false
     nextWhisper=elapsed+12;stepTimer=0;aiTimer=0
     for i,s in ipairs(seals) do s.part.Transparency=i==stage and 0 or 1;s.light.Enabled=i==stage end
     caption.Text=tr(stageNames[index][1],stageNames[index][2]);modalUntil=elapsed+3
     veil.BackgroundTransparency=0;Tween:Create(veil,TweenInfo.new(2.5),{BackgroundTransparency=1}):Play()
     sound("Transition",false,.28)
+    return true
 end
 leave=function(reason)
+    sessionGeneration=sessionGeneration+1
     active=false;state="entrance";scare=nil;table.clear(keys);stopSounds();heartbeat=nil;chaseSound=nil;breathing=nil;lantern.Enabled=false
     restore();cross.Visible=false;meter.Visible=false;objective.Text="";caption.Text="";veil.BackgroundTransparency=1
     if alive then message(reason or tr("문 밖으로 돌아왔다. E로 다시 입장할 수 있습니다.","You returned. Press E near the gate to enter again."),12) end
 end
 enter=function()
     if active or building or not alive then return end
+    Config.PreviewScareTime=nil
     local ok,err=xpcall(function()
         if not ready then buildMap() end
         if not alive then return end
         character=player.Character
         if not character or not character:FindFirstChildOfClass("Humanoid") then leave();return end
         for _,e in ipairs(enemies) do e.model:Destroy() end;table.clear(enemies)
-        count=0;stamina=100;elapsed=0;stepTimer=0;aiTimer=0;position=gatePosition+Vector3.new(0,0,8);yaw=math.pi;pitch=0;state="explore"
-        for _,s in ipairs(seals) do s.collected=false;s.part.Transparency=0;s.light.Enabled=true end
-        beginStage(1)
+        count=checkpointStage-1;stamina=100;elapsed=0;stepTimer=0;aiTimer=0;position=gatePosition+Vector3.new(0,0,8);yaw=math.pi;pitch=0;state="explore"
+        for i,s in ipairs(seals) do s.collected=i<checkpointStage;s.part.Transparency=0;s.light.Enabled=true end
+        if not beginStage(checkpointStage) then return end
         effects();active=true;cross.Visible=true;meter.Visible=true
         startKunai()
         sound("Wind",true,.45);sound("Drone",true,.24)
         heartbeat=sound("Heartbeat",true,0);chaseSound=sound("Chase",true,0);breathing=sound("Breath",true,0)
-        caption.Text=tr(stageNames[1][1].."\n여관의 봉인을 찾아라",stageNames[1][2].."\nFind the inn's seal")
+        caption.Text=tr(stageNames[stage][1],stageNames[stage][2]).."\n"..seals[stage].name
         veil.BackgroundTransparency=0;modalUntil=3
         Tween:Create(veil,TweenInfo.new(3),{BackgroundTransparency=1}):Play()
         if (Config.MissingAudio or 0)>0 then
@@ -498,6 +514,7 @@ enter=function()
     if not ok and alive then building=false;leave(tr("시작 오류: ","Start error: ")..tostring(err));warn(err) end
 end
 local function interact()
+    if building then return end
     if not active then
         local h=player.Character and player.Character:FindFirstChild("HumanoidRootPart")
         if h and portalCF and (h.Position-portalCF.Position).Magnitude<18 then task.spawn(enter) end
@@ -508,7 +525,10 @@ local function interact()
         if s==seals[stage] and not s.collected and (s.position-position).Magnitude<10 then
             s.collected=true;s.part.Transparency=1;s.light.Enabled=false;count=count+1
             sound("Bell",false,.35);message(s.story,7)
-            if stage<5 then beginStage(stage+1) else for _,e in ipairs(enemies) do e.memory=6;e.target=position end end
+            if stage<5 then
+                local ok,err=xpcall(function() beginStage(stage+1) end,debug.traceback)
+                if not ok then building=false;leave(tr("스테이지 오류: ","Stage error: ")..tostring(err));warn(err) end
+            else for _,e in ipairs(enemies) do e.memory=6;e.target=position end end
             return
         end
     end
@@ -517,6 +537,7 @@ local function interact()
         message(tr("종이 울렸다. 처음 들어온 붉은 문으로 돌아가라!","The bell has rung. Return to the red gate!"),9)
         for _,e in ipairs(enemies) do e.memory=120;e.target=position end
     elseif state=="escape" and (position-gatePosition).Magnitude<14 then
+        checkpointStage=1
         leave(tr("탈출 성공 — 문 너머에는 아무도 없었다.","ESCAPED — There was nobody beyond the gate."))
     end
 end
@@ -576,7 +597,7 @@ end)
 connect(Input.InputEnded,function(event) keys[event.KeyCode]=nil end)
 connect(Input.WindowFocusReleased,function() table.clear(keys) end)
 connect(Input.InputChanged,function(event)
-    if active and state~="caught" and not (Config.Development and Config.Preview) and event.UserInputType==Enum.UserInputType.MouseMovement then
+    if active and state~="caught" and event.UserInputType==Enum.UserInputType.MouseMovement then
         yaw=yaw-event.Delta.X*.0023;pitch=math.clamp(pitch-event.Delta.Y*.0023,-1.35,1.35)
     end
 end)
@@ -592,29 +613,31 @@ Run:BindToRenderStep(renderName,Enum.RenderPriority.Camera.Value+10,function(raw
         end
         return
     end
+    if state=="transition" then return end
+    if snapshot and snapshot.humanoid and snapshot.humanoid.Health<=0 then leave(tr("캐릭터가 쓰러져 마을에서 나왔습니다.","Your character fell. You left the village."));return end
     if state=="caught" then
         if scare then
-            local t=Config.Development and Config.PreviewScareTime or elapsed-scare.started
+            local t=elapsed-scare.started
             local camera=workspace.CurrentCamera
             local intensity=math.max(0,1-t/2.4)
             camera.CFrame=scare.camera*CFrame.Angles(math.sin(t*57)*.025*intensity,math.sin(t*43)*.035*intensity,math.sin(t*67)*.025*intensity)
             camera.FieldOfView=58+math.sin(t*18)*3*intensity
             -- All heads are authored at y=7.2; face the mask toward the lens.
-            local distance=math.max(1.6,5.8-t*15)
+            local distance=math.max(3.2,6.5-t*15)
             local face=camera.CFrame*CFrame.new(0,0,-distance)
-            scare.enemy.model:PivotTo(CFrame.lookAt(face.Position,camera.CFrame.Position)*CFrame.new(0,-7.2,0))
+            scare.enemy.model:PivotTo(CFrame.lookAt(face.Position,camera.CFrame.Position)*CFrame.new(0,-scare.enemy.headHeight,0))
             lanternPart.CFrame=camera.CFrame;lantern.Enabled=true;lantern.Brightness=.8
             veil.BackgroundTransparency=t>1.9 and math.max(0,1-(t-1.9)/.6) or 1
             if t>2.15 then caption.Text=tr("그것이 당신의 이름을 기억했다.","It remembers your name.") end
         end
-        if elapsed>modalUntil and not (Config.Development and Config.PreviewScareTime) then leave(tr("마을에 붙잡혔다. 문에서 다시 도전할 수 있습니다.","The village caught you. Try again at the gate.")) end
+        if elapsed>modalUntil then leave(tr("마을에 붙잡혔다. E로 이 스테이지를 다시 도전하세요.","Caught. Press E at the gate to retry this stage.")) end
         return
     end
     if elapsed>modalUntil then caption.Text="" end
     if elapsed>messageUntil then note.Text="" end
     local x=(keys[Enum.KeyCode.D] and 1 or 0)-(keys[Enum.KeyCode.A] and 1 or 0)
     local z=(keys[Enum.KeyCode.S] and 1 or 0)-(keys[Enum.KeyCode.W] and 1 or 0)
-    if Config.Development and Config.Preview then x=0;z=0 end
+
     local moving=x~=0 or z~=0
     local sprint=moving and keys[Enum.KeyCode.LeftShift] and stamina>1
     stamina=math.clamp(stamina+(sprint and -19 or 12)*dt,0,100)
@@ -642,13 +665,13 @@ Run:BindToRenderStep(renderName,Enum.RenderPriority.Camera.Value+10,function(raw
     if not targetSeal.collected and (targetSeal.position-position).Magnitude<10 then prompt.Text=tr("[E] 봉인 회수 — ","[E] Take seal — ")..targetSeal.name end
     if count==5 and (position-bellPosition).Magnitude<13 and state=="explore" then prompt.Text=tr("[E] 종 울리기","[E] Ring the bell") end
     if state=="escape" and (position-gatePosition).Magnitude<14 then prompt.Text=tr("[E] 탈출","[E] Escape") end
-    if elapsed>nextWhisper then
+    if elapsed>nextWhisper and #enemies>0 then
         nextWhisper=elapsed+rng:NextNumber(12,24)
         local e=enemies[rng:NextInteger(1,#enemies)]
         if e and (e.position-position).Magnitude<150 then sound("Whisper",false,.55,e.voice) end
     end
     aiTimer=aiTimer+dt
-    if aiTimer>=.1 then if not Config.Development or not Config.Preview then stepAI(aiTimer,sprint) end;aiTimer=0 end
+    if aiTimer>=.1 then stepAI(aiTimer,sprint);aiTimer=0 end
     local enemy=enemies[1];local threat=enemy and enemy.mode=="chase" and math.clamp(1-(enemy.position-position).Magnitude/110,0,1) or 0
     if heartbeat then heartbeat.Volume=volume*threat*.34;heartbeat.PlaybackSpeed=1+threat*.35 end
     if chaseSound then chaseSound.Volume=volume*threat*.32 end
@@ -674,11 +697,11 @@ function api:Leave() leave() end
 function api:Enter() task.spawn(enter) end
 function api:SetVolume(v) volume=math.clamp(v,0,1);for s in pairs(sounds) do if s.Parent then s.Volume=(s:GetAttribute("KageGain") or 1)*volume end end end
 function api:SetLanguage(language) Config.Language=language=="en" and "en" or "ko" end
-function api:GetStatus() return {active=active,building=building,ready=ready,stage=stage,state=state,monsters=#enemies,seals=count,kunai=kunaiStatus,meshes=(function() local n=0;for _ in pairs(meshCache) do n=n+1 end;return n end)()} end
+function api:GetStatus() return {active=active,building=building,ready=ready,stage=stage,state=state,monsters=#enemies,seals=count,kunai=kunaiStatus,position=position,yaw=yaw,meshes=(function() local n=0;for _ in pairs(meshCache) do n=n+1 end;return n end)()} end
 if Config.Development then
-    function api:PreviewStage(index) assert(active and index>=1 and index<=5);Config.Preview=true;beginStage(index) end
+    function api:PreviewStage(index) assert(active and index>=1 and index<=5);beginStage(index) end
     function api:PreviewCamera(pos,angle) position=pos;yaw=angle or math.pi;pitch=0 end
-    function api:PreviewCatch(holdTime) assert(active and enemies[1]);Config.PreviewScareTime=holdTime;catch(enemies[1]) end
+    function api:PreviewCatch(holdTime) assert(active and enemies[1]);catch(enemies[1]) end
     function api:PreviewInteract() interact() end
 end
 api.Config=Config
