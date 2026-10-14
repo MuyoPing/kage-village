@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "title": "Kage Village",
+  "version": "1.0.0",
+  "files": {
+    "assets/audio/Bell.wav": {
+      "bytes": 96044,
+      "sha256": "c610e77e4e9832d711f547e51fd518386337673f399b57bb8fd524dbb26c1056"
+    },
+    "assets/audio/Drone.wav": {
+      "bytes": 256044,
+      "sha256": "b74621333894527f617eca7f68cb8aa1a0ed8911c3412a06f2c07af881902e7d"
+    },
+    "assets/audio/Step.wav": {
+      "bytes": 9004,
+      "sha256": "513ced3d87fd10c4e21bdc992a3112d846029d6526d05e5107282090538b3a7c"
+    },
+    "assets/audio/Stinger.wav": {
+      "bytes": 44844,
+      "sha256": "a1eec3027d8fddfb6e78c7a0d57a3df71433cbc9f41b5e69eb560ed30e84da72"
+    },
+    "assets/audio/Whisper.wav": {
+      "bytes": 80044,
+      "sha256": "15575073f7190f63f6856110f82d6c472bf1e9f79e858d46ebec28a34068879e"
+    },
+    "assets/audio/Wind.wav": {
+      "bytes": 256044,
+      "sha256": "4715bbb5c5cac2eaff829413d3afb60ef70ee11441ae74b55f5b8eec61204bb1"
+    },
+    "assets/monsters.json": {
+      "bytes": 33500,
+      "sha256": "b6eed5f1791513168850bde0783608883f4cd12363d04ed4eb6c99ad200bd4ab"
+    },
+    "assets/village.json": {
+      "bytes": 1319769,
+      "sha256": "e5a323b381370852ce93619882174b5c8cb12e869d6edfe2ed5206daf14135a4"
+    }
+  }
+}
