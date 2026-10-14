@@ -4,36 +4,64 @@
   "version": "2.0.0",
   "files": {
     "assets/audio/Bell.wav": {
-      "bytes": 96044,
-      "sha256": "c610e77e4e9832d711f547e51fd518386337673f399b57bb8fd524dbb26c1056"
+      "bytes": 846764,
+      "sha256": "e44cb1515d252c9e0e8b3cefef02eebbc7e0587c60d618df67d9dcd874587607"
     },
     "assets/audio/Drone.wav": {
-      "bytes": 256044,
-      "sha256": "b74621333894527f617eca7f68cb8aa1a0ed8911c3412a06f2c07af881902e7d"
+      "bytes": 2116844,
+      "sha256": "fb139e4bd166b3135d119a777953f29bd096d6baa224464ae2718a529f786383"
     },
     "assets/audio/Step.wav": {
-      "bytes": 9004,
-      "sha256": "513ced3d87fd10c4e21bdc992a3112d846029d6526d05e5107282090538b3a7c"
+      "bytes": 98828,
+      "sha256": "cd2fae9a061afaf33637620dcdd97930d34899530b707cc17d98e4fb3ab4f4c9"
     },
     "assets/audio/Stinger.wav": {
-      "bytes": 44844,
-      "sha256": "a1eec3027d8fddfb6e78c7a0d57a3df71433cbc9f41b5e69eb560ed30e84da72"
+      "bytes": 546884,
+      "sha256": "25b38f6861b3f36f94762562062f5cf66420d6f4348a3ce5e57a3a1a0e143fa2"
     },
     "assets/audio/Whisper.wav": {
-      "bytes": 80044,
-      "sha256": "15575073f7190f63f6856110f82d6c472bf1e9f79e858d46ebec28a34068879e"
+      "bytes": 635084,
+      "sha256": "da6127a77348d1f6b0af31baf2d4dc1964683fb1aa664b7d099fe6d29be346ea"
     },
     "assets/audio/Wind.wav": {
-      "bytes": 256044,
-      "sha256": "4715bbb5c5cac2eaff829413d3afb60ef70ee11441ae74b55f5b8eec61204bb1"
+      "bytes": 2116844,
+      "sha256": "6f6ac0119dbf91969bc92b066eb11aca7a7958ca5d9be865fe24e4cf2ec098ae"
     },
     "assets/monsters.json": {
-      "bytes": 414328,
-      "sha256": "344b73412cf7caae92da351c536efcef3d698186f06e76cfa69060d8e2d66781"
+      "bytes": 3366544,
+      "sha256": "a61060de83b92be5566a6f04853aa57d32b7f8dfa0c54d8b4d29fe2ab345dc88"
     },
     "assets/village.json": {
-      "bytes": 3544274,
-      "sha256": "fede09538755eb9a464a02785b0602409526d31ecc2d0a803ffde68448f91841"
+      "bytes": 5052060,
+      "sha256": "e71629c5a0afbb22c1e34f492783dd9e50b99a1b5a8acc8174c0e04cc508fcec"
+    },
+    "assets/audio/Breath.wav": {
+      "bytes": 705644,
+      "sha256": "961dd84b6ec39613395c5cef20ce631206987c2998e616297b31b7e25897b680"
+    },
+    "assets/audio/Chase.wav": {
+      "bytes": 1411244,
+      "sha256": "ed949b18e2765e1c0e713e3c90b4541352261985aecafc17d812096dcc06db2c"
+    },
+    "assets/audio/Heartbeat.wav": {
+      "bytes": 705644,
+      "sha256": "4a461994447ca748743e5c7faded30f1f9cf76ec7a40655127894aba0304d40b"
+    },
+    "assets/audio/Run1.wav": {
+      "bytes": 98828,
+      "sha256": "b1ab9c3217119342d74812015b3d233b4730619f38023dc372f0a0f49ba74a63"
+    },
+    "assets/audio/Run2.wav": {
+      "bytes": 98828,
+      "sha256": "744669e6effd78a0d8c651eafb553f974b2c47970e45e6b1c9272d29195798c4"
+    },
+    "assets/audio/Step2.wav": {
+      "bytes": 98828,
+      "sha256": "456c5ecf25f7e14a515d0a5fa7145d9a064948add372547ef10a3f7f70ae2fb3"
+    },
+    "assets/audio/Transition.wav": {
+      "bytes": 635084,
+      "sha256": "e1949de789855c86f101070c24ff5cc027bf211545b2173714c257e1e33dfdad"
     }
   }
 }

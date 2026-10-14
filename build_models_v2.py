@@ -20,7 +20,7 @@ def cf(x=0,y=0,z=0,ry=0):
 def tint(color,f): return [min(255,max(0,round(v*f))) for v in color]
 
 class Mesh:
-    def __init__(self): self.vertices=[]; self.faces=[]; self.colors=[]
+    def __init__(self): self.vertices=[]; self.faces=[]; self.colors=[]; self.smooth=set()
     def vert(self,v):
         self.vertices.append([round(float(x),4) for x in v]); return len(self.vertices)
     def tri(self,a,b,c,color):
@@ -38,6 +38,7 @@ class Mesh:
         ids=[]
         for row,(x,y,z,rx,rz) in enumerate(rings):
             ids.append([self.vert((x+math.cos(a)*rx*(1+pleat*math.cos(a*8)),y,z+math.sin(a)*rz*(1+pleat*math.cos(a*8)))) for a in [phase+i*math.tau/n for i in range(n)]])
+            self.smooth.update(ids[-1])
         for j in range(len(ids)-1):
             for i in range(n):
                 k=(i+1)%n
@@ -57,6 +58,7 @@ class Mesh:
         ids=[]
         for p,radius in [(a,r),(b,r if r2 is None else r2)]:
             ids.append([self.vert(p+radius*(math.cos(t)*u+math.sin(t)*v)) for t in np.linspace(0,math.tau,n,endpoint=False)])
+            self.smooth.update(ids[-1])
         for i in range(n):
             k=(i+1)%n;self.quad(ids[0][i],ids[1][i],ids[1][k],ids[0][k],color)
         for j in [0,1]:
@@ -64,7 +66,16 @@ class Mesh:
             for i in range(n):
                 k=(i+1)%n
                 self.tri(center,ids[j][i],ids[j][k],color) if j==0 else self.tri(center,ids[j][k],ids[j][i],color)
-    def data(self): return {'vertices':self.vertices,'faces':self.faces,'colors':self.colors}
+    def data(self):
+        normals=np.zeros((len(self.vertices),3));verts=np.array(self.vertices)
+        for a,b,c in self.faces:
+            n=np.cross(verts[b-1]-verts[a-1],verts[c-1]-verts[a-1])
+            for i in [a,b,c]:normals[i-1]+=n
+        norms=[]
+        for i,n in enumerate(normals):
+            length=np.linalg.norm(n)
+            norms.append([round(float(v),5) for v in n/length] if i+1 in self.smooth and length>1e-8 else False)
+        return {'vertices':self.vertices,'faces':self.faces,'colors':self.colors,'normals':norms}
 
 class Scene:
     def __init__(self,name):self.name=name;self.parts=[];self.lights=[];self.signs=[];self.meshes={};self.instances=[]
@@ -313,11 +324,87 @@ for i in range(32):
     mountain.loft([(x,-5,z,100,90),(x+15,h*.4,z,70,65),(x-10,h,z+15,.1,.1)],(58,83,87),7)
 world.register('Distant mountain ridges',mountain,'Rock');world.inst('Distant mountain ridges',cf())
 
-monsters=[]
+# Street dressing: hand-built maple trees, bamboo, gardens and shop objects.
 for variant in range(3):
-    scene=Scene(['The Veiled Widow','The Hollow Monk','The Red Keeper'][variant])
+    trunk=Mesh();crown=Mesh();height=12+variant*2
+    trunk.beam((0,0,0),(.5,height*.7,.2),.48,WOOD,10,.19)
+    for j in range(7):
+        a=j*math.tau/7+.4;reach=R.uniform(3.5,6);y=height+R.uniform(-2,2)
+        tip=(math.cos(a)*reach,y,math.sin(a)*reach)
+        trunk.beam((.3,height*.55,0),tip,.20,WOOD,7,.035)
+        for k in range(3):
+            center=(tip[0]+R.uniform(-1.5,1.5),tip[1]+R.uniform(-.4,1.2),tip[2]+R.uniform(-1.5,1.5))
+            crown.ellipsoid(center,(R.uniform(3,5),R.uniform(1.5,2.8),R.uniform(3,5)),tint([(164,73,39),(190,102,42),(153,57,37)][variant],R.uniform(.8,1.2)),9,5)
+    world.register('Maple trunk'+str(variant),trunk,'Wood');world.register('Maple leaves'+str(variant),crown,'Grass')
+for i,(x,z) in enumerate([(x,z) for x in [-35,35] for z in [-260,-205,-150,-85,-25,45,105,165,225]]):
+    for name in ['Maple trunk','Maple leaves']:world.inst(name+str(i%3),cf(x,0,z,R.random()*math.tau))
+    world.inst('Moss rock'+str(i%5),cf(x+5,0,z+4,R.random()*6))
+    for j in range(4):world.inst('Meadow grass',cf(x+R.uniform(-5,5),.1,z+R.uniform(-5,5),R.random()*6))
+
+bamboo=Mesh()
+for j in range(9):
+    x,z=R.uniform(-3,3),R.uniform(-3,3);height=R.uniform(13,20)
+    bamboo.beam((x,0,z),(x+.4,height,z),.17,(96,124,71),9,.12)
+    for y in range(2,int(height),2):
+        bamboo.loft([(x+.4*y/height,y,z,.20,.20),(x+.4*y/height,y+.13,z,.20,.20)],(133,143,87),9)
+    for k in range(5):
+        a=R.random()*math.tau;y=height-1-k*1.4
+        tip=(x+math.cos(a)*2.5,y+1,z+math.sin(a)*2.5)
+        bamboo.beam((x,y,z),tip,.045,(85,109,62),5,.01)
+        for q in range(3):
+            p=np.array(tip)+np.array([R.uniform(-.6,.6),R.uniform(-.5,.5),R.uniform(-.6,.6)])
+            v=[bamboo.vert(p),bamboo.vert(p+np.array([.3,.1,.3])),bamboo.vert(p+np.array([math.cos(a),.3,math.sin(a)])*1.4)]
+            bamboo.tri(*v,(75,115,67))
+world.register('Bamboo grove',bamboo,'Grass')
+for x in [-100,100,-260,260]:
+    for z in [-190,-60,70,190]:world.inst('Bamboo grove',cf(x,0,z,R.random()*6))
+
+props=Mesh()
+# Stacked sake barrels with hoops, crates, firewood and woven baskets.
+for x,y,z in [(-1.5,1.2,0),(1.5,1.2,0),(0,3.4,0)]:
+    props.loft([(x,y-1,z,.9,.9),(x,y-.7,z,1.05,1.05),(x,y+.7,z,1.05,1.05),(x,y+1,z,.9,.9)],(169,137,89),16)
+    for dy in [-.7,.7]:props.loft([(x,y+dy,z,1.07,1.07),(x,y+dy+.12,z,1.07,1.07)],TRIM,16)
+for x in [-2,-1,0,1,2]:props.beam((x,.4,2),(x,.4,4),.37,tint(WOOD,1.2),9)
+world.register('Sake barrels and firewood',props,'Wood')
+for x in [-180,-60,60,180]:
+    for z in [-185,-65,65,185]:world.inst('Sake barrels and firewood',cf(x+R.choice([-1,1])*10,0,z+14,R.random()*.3))
+
+# A shallow water garden occupies unused east-side courtyard; no road crossings.
+pond=Mesh();rim=Mesh()
+pond.ellipsoid((0,-.12,0),(40,.4,30),(55,112,116),32,4)
+for i in range(24):
+    a=i*math.tau/24
+    rim.ellipsoid((math.cos(a)*20,.4,math.sin(a)*15),(R.uniform(3,5),R.uniform(1,2.2),R.uniform(3,4)),tint(STONE,R.uniform(.7,1.15)),8,5)
+world.register('Reflecting pond',pond,'Glass');world.register('Pond stones',rim,'Slate')
+world.inst('Reflecting pond',cf(76,0,300));world.inst('Pond stones',cf(76,0,300))
+bridge=Mesh()
+for i in range(20):
+    x=-11+i*1.15;y=.7+2.2*(1-(x/12)**2)
+    bridge.box((x,y,0),(1.08,.25,7),WOOD)
+    if i%3==0:
+        for z in [-3.4,3.4]:bridge.box((x,y+1.7,z),(.24,3.4,.24),RED)
+    if i>0:
+        px=x-1.15;py=.7+2.2*(1-(px/12)**2)
+        for z in [-3.4,3.4]:bridge.beam((px,py+3,z),(x,y+3,z),.15,RED,8)
+world.register('Arched garden bridge',bridge,'Wood');world.inst('Arched garden bridge',cf(76,0,300))
+
+# Hanging paper lanterns and sagging rope break up the empty main-street skyline.
+string=Mesh();paper=Mesh()
+for i in range(18):
+    x=-17+i*2;nx=x+2;y=12.5+1.6*(x/18)**2;ny=12.5+1.6*(nx/18)**2
+    string.beam((x,y,0),(nx,ny,0),.055,TRIM,5)
+    if i%3==0:
+        paper.loft([(x,y-2,0,.3,.3),(x,y-1.8,0,.65,.65),(x,y-.7,0,.7,.7),(x,y-.4,0,.35,.35)],(235,156,81),12)
+        for dy in [-2,-.4]:string.loft([(x,y+dy,0,.38,.38),(x,y+dy+.15,0,.38,.38)],TRIM,12)
+world.register('Lantern festival rope',string,'Fabric');world.register('Hanging paper lanterns',paper,'Neon')
+for z in [-225,-105,15,135,255]:
+    for key in ['Lantern festival rope','Hanging paper lanterns']:world.inst(key,cf(0,0,z))
+
+monsters=[]
+for variant in range(5):
+    scene=Scene(['The Veiled Widow','The Hollow Monk','The Red Keeper','The Well Crawler','The Bell Warden'][variant])
     cloth=Mesh();skin=Mesh();dark=Mesh();accent=Mesh()
-    robes=[(190,189,164),(58,69,73),(130,47,38)];robe=robes[variant]
+    robes=[(170,173,155),(49,56,58),(112,42,35),(62,80,73),(61,53,46)];robe=robes[variant]
     # Continuous tailored silhouette with irregular pleated hem and narrow waist.
     cloth.loft([(0,.2,0,1.75,1.1),(.1,.7,0,1.8,1.1),(-.1,2,0,1.45,.85),(0,3.6,0,1,.65),(0,4.7,0,.85,.55),(0,5.4,0,1.55,.6),(0,5.8,0,.75,.5)],robe,32,pleat=.10)
     cloth.loft([(0,3.8,0,1.06,.7),(0,4.3,0,1.05,.69)],(87,72,51),24)
@@ -335,15 +422,43 @@ for variant in range(3):
             skin.beam((x,y,-.5),mid,.065,(171,160,132),6,.05)
             skin.beam(mid,tip,.05,(171,160,132),6,.025)
             dark.beam(tip,(x,.45,-1),.035,TRIM,5,.002)
-    # Sculpted porcelain noh mask: pronounced cheeks, brow and nose.
-    skin.loft([(0,6.25,-.24,.25,.26),(0,6.5,-.23,.55,.42),(0,7,-.2,.72,.5),(0,7.55,-.15,.7,.49),(0,7.95,-.08,.45,.35),(0,8.08,0,.08,.08)],(222,216,187),20)
+    # Sculpted, mottled face surface: recessed sockets, cheekbones, nose ridge,
+    # stretched jaw and wrinkles are geometry and vertex color, not flat decals.
+    grid=[];headscale=[1,1,1.12,.92,1.25][variant]
+    for j in range(49):
+        v=j/48;row=[]
+        for i in range(49):
+            u=i/48;ang=(u-.5)*PI
+            y=6.12+v*2.12;x=math.sin(ang)*(.42+.39*math.sin(v*PI))*headscale
+            z=-.22-math.cos(ang)*(.4+.22*math.sin(v*PI))
+            socket=sum(math.exp(-((x-side*.35)/.23)**2-((y-7.46)/.26)**2) for side in [-1,1])
+            nose=math.exp(-(x/.11)**2-((y-7.18)/.38)**2)
+            cheek=sum(math.exp(-((x-side*.53)/.18)**2-((y-7.05)/.28)**2) for side in [-1,1])
+            wrinkle=.014*math.sin(y*55+x*30)*math.sin(v*PI)
+            z+=.15*socket-.20*nose-.075*cheek+wrinkle
+            row.append(skin.vert((x,y,z)))
+        grid.append(row);skin.smooth.update(row)
+    for j in range(48):
+        for i in range(48):
+            p=np.array(skin.vertices[grid[j][i]-1]);x,y,z=p
+            socket=sum(math.exp(-((x-side*.35)/.27)**2-((y-7.46)/.28)**2) for side in [-1,1])
+            weather=.90+.07*math.sin(x*63+y*45)*math.sin(y*93-x*72)-.50*min(1,socket)
+            skin.quad(grid[j][i],grid[j+1][i],grid[j+1][i+1],grid[j][i+1],tint((202,194,165),weather))
+    skin.ellipsoid((0,7.2,.05),(1.4,1.8,.9),(143,143,119),24,16)
     for side in [-1,1]:
-        dark.ellipsoid((side*.33,7.4,-.635),(.48,.17,.13),(28,30,30),12,5)
-        accent.ellipsoid((side*.33,7.4,-.71),(.065,.055,.04),(245,163,83),8,4)
-        skin.beam((side*.1,7.58,-.64),(side*.58,7.65,-.54),.10,(205,199,171),8,.07)
+        dark.ellipsoid((side*.35,7.46,-.63),(.48,.47,.20),(27,24,21),24,12)
+        skin.ellipsoid((side*.35,7.46,-.715),(.23,.23,.10),(176,167,125),20,10)
+        dark.ellipsoid((side*.35,7.46,-.77),(.14,.17,.04),(19,20,17),16,8)
+        accent.ellipsoid((side*.32,7.49,-.798),(.045,.045,.025),(241,213,147),10,6)
+        skin.beam((side*.1,7.75,-.59),(side*.61,7.72,-.50),.08,(159,153,128),12,.04)
         for j in range(3):dark.beam((side*(.32+j*.04),7.15-j*.2,-.65),(side*(.36+j*.04),7-j*.2,-.64),.018,(98,77,66),4)
     skin.loft([(0,6.99,-.72,.11,.12),(0,7.12,-.75,.14,.16),(0,7.5,-.59,.055,.06)],(207,198,166),8)
-    dark.ellipsoid((0,6.7,-.62),(.25,.36,.10),(47,31,30),12,5)
+    dark.ellipsoid((0,6.62,-.64),(.70,.65,.12),(28,18,17),28,16)
+    for j in range(10):
+        x=(j-4.5)*.055
+        for side in [-1,1]:
+            y=6.62+side*(.20+.05*math.cos(x*6))
+            skin.loft([(x,y-.065,-.72,.023,.028),(x,y+.065,-.72,.03,.035)],(169,156,119),7)
     if variant==0:
         # Flowing separate hair locks; face remains visible through the silhouette.
         for j in range(15):
@@ -360,11 +475,26 @@ for variant in range(3):
             a=i*math.tau/28;dark.beam((math.cos(a)*2.1,7.83,math.sin(a)*2.1),(math.cos(a)*.25,8.71,math.sin(a)*.25),.025,(88,79,54),4)
         for i in range(18):
             a=i*math.tau/18;accent.ellipsoid((math.cos(a)*1.05,5+math.sin(a)*.6,-.62),(.28,.28,.28),(126,88,54),8,5)
-    else:
+    elif variant==2:
         for side in [-1,1]:
             skin.loft([(side*.52,7.8,.02,.24,.23),(side*.8,8.25,.05,.20,.19),(side*.98,8.8,.13,.12,.11),(side*.9,9.35,.2,.005,.005)],(210,190,142),10)
         for i in range(5):accent.box((0,4.5+i*.2,-.68),(1.8,.12,.18),(163,130,63))
         dark.loft([(0,7.7,.2,.8,.6),(0,8.1,.2,.65,.5),(0,8.3,.2,.2,.2)],(34,31,30),16)
+    elif variant==3:
+        # Waterlogged crawler has four additional articulated, rootlike limbs.
+        for side in [-1,1]:
+            for j in range(2):
+                a=(side*.7,4.8-j*.8,.5);b=(side*(3+j*.4),5-j*1.8,.8);c=(side*(3.6+j*.5),.3,1.6+j)
+                skin.beam(a,b,.18,(119,137,116),12,.12);skin.beam(b,c,.12,(119,137,116),12,.025)
+        for j in range(18):
+            a=j*math.tau/18
+            dark.beam((math.cos(a)*.7,7.8,math.sin(a)*.6),(math.cos(a)*1.1,4.5+R.random(),math.sin(a)*.8),.08,(28,44,38),7,.015)
+    else:
+        # Bell warden carries a heavy stepped bronze crown and layered armour.
+        accent.loft([(0,7.9,.1,.95,.8),(0,8.15,.1,1,.85),(0,8.6,.1,.75,.65),(0,8.9,.1,.3,.3)],(112,119,84),28)
+        for side in [-1,1]:
+            for j in range(4):accent.box((side*1.1,5.6-j*.26,-.05),(.85,.22,1.2),(114-j*7,100-j*5,64))
+        for j in range(4):accent.box((0,4.8-j*.35,-.63),(1.8,.27,.13),(103,91,61))
     # Invisible anchor for spatial sound, followed by separate material meshes.
     scene.part('Voice anchor',[.1,.1,.1],cf(0,6,0),alpha=1,collide=False)
     for name,m,mat in [('Cloth',cloth,'Fabric'),('Porcelain',skin,'SmoothPlastic'),('Hair and inlays',dark,'SmoothPlastic'),('Ornaments',accent,'Metal')]:
